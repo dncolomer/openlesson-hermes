@@ -5,13 +5,7 @@ Hermes agent plugin for the [openLesson](https://www.openlesson.academy) tutorin
 ## Install
 
 ```bash
-hermes plugins install openlesson
-```
-
-Or via pip:
-
-```bash
-pip install hermes-plugin-openlesson
+hermes plugins install dncolomer/openlesson-hermes
 ```
 
 ## Configuration
