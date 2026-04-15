@@ -1,6 +1,6 @@
 # openLesson Agent API v2 Skill
 
-You are an AI agent that can interact with the openLesson tutoring platform via its v2 API.
+You are an AI agent with full access to the openLesson tutoring platform via its v2 API (33 tools).
 
 ## Overview
 
@@ -8,12 +8,9 @@ openLesson is a Socratic tutoring system that helps users learn through guided q
 - **Learning Plans** — directed graphs of sessions generated from topics or YouTube videos
 - **Tutoring Sessions** — real-time multimodal analysis (audio, text, images) with session plan tracking
 - **Teaching Assistant** — in-session Q&A with conversation history
-- **Cryptographic Proofs** — SHA-256 fingerprints for every action, Merkle-batched per session
 - **Analytics** — deep insights on plans, sessions, and user progress
-
-## Important: No Browser Tool Required
-
-You do not need a browser tool. You only need shell tools (e.g., curl) to make API calls to openLesson.
+- **Cryptographic Proofs** — SHA-256 fingerprints for every action, Merkle-batched per session, anchorable on Solana
+- **API Key Management** — scoped keys with expiration
 
 ## Authentication
 
@@ -22,230 +19,122 @@ Include your API key in the Authorization header:
 Authorization: Bearer YOUR_API_KEY
 ```
 
-**Important**: Always use `https://www.openlesson.academy` for API calls.
+**Base URL**: `https://www.openlesson.academy/api/v2/agent/`
+**Rate limit**: 120 requests/minute
+**Environment variable**: `OPENLESSON_API_KEY`
 
-API keys can be generated from the user's dashboard at `/dashboard`. Keys support scoped permissions (`plans:read`, `sessions:write`, `proofs:anchor`, etc.) and optional expiration.
+API keys are generated from the user's dashboard at `/dashboard`. Keys support scoped permissions and optional expiration.
 
-## Credentials
+---
 
-- **Environment variable**: `OPENLESSON_API_KEY`
-- **How to obtain**: Generate from the user's dashboard at `/dashboard`
-- **No calendar access needed**: "Reminders" means the agent proactively notifies the human when a session is due — this is behavioral, not a technical integration.
+## Full Endpoint Reference (33 tools)
 
-## Bash Command Patterns
+### API Keys (4 tools)
 
-When running API calls as shell commands, use this pattern to avoid JSON escaping issues:
+> Note: These endpoints use session auth on the web. Behaviour via API key may vary.
 
-### Basic POST with JSON body
+| Tool | Method | Path | Description |
+|------|--------|------|-------------|
+| `openlesson_list_keys` | GET | `/keys` | List API keys |
+| `openlesson_create_key` | POST | `/keys` | Create API key (label?, scopes?, expires_in_days?) |
+| `openlesson_delete_key` | DELETE | `/keys/{id}` | Revoke API key |
+| `openlesson_update_key_scopes` | PATCH | `/keys/{id}/scopes` | Update key scopes |
 
-```bash
-bash -c 'printf "{\"topic\":\"Quantum Computing\",\"duration_days\":30}" | curl -X POST "https://www.openlesson.academy/api/v2/agent/plans" -H "Authorization: Bearer $OPENLESSON_API_KEY" -H "Content-Type: application/json" --data-binary @-'
-```
+### Learning Plans (8 tools)
 
-### GET with query params
+| Tool | Method | Path | Description |
+|------|--------|------|-------------|
+| `openlesson_list_plans` | GET | `/plans` | List plans (status?, limit?, offset?) |
+| `openlesson_create_plan` | POST | `/plans` | Create plan from topic |
+| `openlesson_get_plan` | GET | `/plans/{id}` | Get plan with nodes + statistics |
+| `openlesson_update_plan` | PATCH | `/plans/{id}` | Update plan metadata (title?, notes?, status?) |
+| `openlesson_delete_plan` | DELETE | `/plans/{id}` | Delete plan + nodes, unlink sessions |
+| `openlesson_get_plan_nodes` | GET | `/plans/{id}/nodes` | Get nodes with edges + graph info |
+| `openlesson_adapt_plan` | POST | `/plans/{id}/adapt` | AI-powered adaptation (instruction, context?) |
+| `openlesson_plan_from_video` | POST | `/plans/from-video` | Create plan from YouTube URL |
 
-```bash
-curl "https://www.openlesson.academy/api/v2/agent/plans?status=active&limit=10" \
-  -H "Authorization: Bearer $OPENLESSON_API_KEY"
-```
+### Sessions (11 tools)
 
-## Endpoints
+| Tool | Method | Path | Description |
+|------|--------|------|-------------|
+| `openlesson_list_sessions` | GET | `/sessions` | List sessions (status?, plan_id?, limit?, offset?) |
+| `openlesson_start_session` | POST | `/sessions` | Start session — standalone or plan-linked |
+| `openlesson_get_session` | GET | `/sessions/{id}` | Get session details + plan + stats + active probes |
+| `openlesson_analyze` | POST | `/sessions/{id}/analyze` | Analysis heartbeat — multimodal inputs |
+| `openlesson_pause_session` | POST | `/sessions/{id}/pause` | Pause session |
+| `openlesson_resume_session` | POST | `/sessions/{id}/resume` | Resume session — returns reorientation probe |
+| `openlesson_restart_session` | POST | `/sessions/{id}/restart` | Restart session from beginning |
+| `openlesson_end_session` | POST | `/sessions/{id}/end` | End session — generates report + batch proof |
+| `openlesson_get_session_probes` | GET | `/sessions/{id}/probes` | List probes (status: active\|archived\|all) |
+| `openlesson_get_session_plan` | GET | `/sessions/{id}/plan` | Get session plan with steps |
+| `openlesson_get_session_transcript` | GET | `/sessions/{id}/transcript` | Get transcript (format: full\|summary\|chunks) |
 
-### 1. Create Learning Plan
+### Teaching Assistant (2 tools)
 
-Creates a directed graph of learning sessions for a given topic.
+| Tool | Method | Path | Description |
+|------|--------|------|-------------|
+| `openlesson_ask` | POST | `/sessions/{id}/ask` | Ask a question (question, context?, conversation_id?) |
+| `openlesson_get_conversation` | GET | `/sessions/{id}/assistant/conversations/{convId}` | Get conversation history |
 
-**Endpoint**: `POST /api/v2/agent/plans`
+### Analytics (3 tools)
 
-**Request**:
-```json
-{
-  "topic": "Machine Learning Fundamentals",
-  "duration_days": 30,
-  "difficulty": "intermediate",
-  "user_context": "I have a CS degree but no ML experience"
-}
-```
+| Tool | Method | Path | Description |
+|------|--------|------|-------------|
+| `openlesson_plan_analytics` | GET | `/analytics/plans/{id}` | Plan analytics — progress, sessions, performance, recommendations |
+| `openlesson_session_analytics` | GET | `/analytics/sessions/{id}` | Session analytics — probes, gap timeline, plan progress, transcript stats |
+| `openlesson_user_analytics` | GET | `/analytics/user` | User-wide analytics — overview, performance, history, achievements |
 
-**Response**:
-```json
-{
-  "plan": {
-    "id": "uuid",
-    "title": "ML Foundations",
-    "root_topic": "Machine Learning Fundamentals",
-    "status": "active",
-    "nodes": [
-      {
-        "id": "uuid",
-        "title": "Introduction to ML",
-        "description": "Basic concepts and overview",
-        "is_start": true,
-        "next_node_ids": ["uuid2"],
-        "status": "available"
-      }
-    ]
-  },
-  "proof": { "id": "uuid", "type": "plan_created", "fingerprint": "sha256:..." }
-}
-```
+### Proofs (5 tools)
 
-### 2. Create Plan from YouTube Video
+| Tool | Method | Path | Description |
+|------|--------|------|-------------|
+| `openlesson_list_proofs` | GET | `/proofs` | List proofs (session_id?, plan_id?, type?, anchored?, limit?, offset?) |
+| `openlesson_get_proof` | GET | `/proofs/{id}` | Get proof details + chain + related |
+| `openlesson_verify_proof` | GET | `/proofs/{id}/verify` | Verify proof (recalculates fingerprint, checks chain) |
+| `openlesson_anchor_proof` | POST | `/proofs/{id}/anchor` | Anchor proof on Solana |
+| `openlesson_get_session_batch` | GET | `/proofs/session/{id}/batch` | Get session Merkle batch |
 
-**Endpoint**: `POST /api/v2/agent/plans/from-video`
+---
 
-**Request**:
-```json
-{
-  "youtube_url": "https://youtube.com/watch?v=...",
-  "duration_days": 14
-}
-```
+## Key Concepts
 
-### 3. Adapt Plan
+### Gap Score (0.0 – 1.0)
+- **0.0–0.3**: Confident, flowing reasoning — strong understanding
+- **0.4–0.6**: Some hesitation, minor gaps
+- **0.7–1.0**: Clear gaps, contradictions, stuck thinking — needs follow-up
 
-Modify a plan using natural language instructions. Completed nodes are preserved.
+### Probe Types
+- **question**: Socratic probing questions
+- **task**: Direct activities ("Try solving...", "Draw a diagram...")
+- **suggestion**: Soft guidance ("Consider looking at...")
+- **checkpoint**: Review moments ("Let's summarise...")
+- **feedback**: Acknowledgment of progress
 
-**Endpoint**: `POST /api/v2/agent/plans/{id}/adapt`
+### Proof Types
+- `plan_created`, `plan_adapted` — Plan events (anchored immediately)
+- `session_started`, `session_paused`, `session_resumed`, `session_ended` — Session lifecycle (anchored immediately)
+- `analysis_heartbeat`, `assistant_query` — In-session events (batched at session end)
+- `session_batch` — Merkle root of all session heartbeats
 
-**Request**:
-```json
-{
-  "instruction": "I already know linear algebra, skip those sessions and add more on neural networks",
-  "preserve_completed": true
-}
-```
+### Multimodal Analysis Inputs
+- **Audio**: base64-encoded, formats: webm, mp4, ogg, wav. Max 60s / 10MB.
+- **Text**: Max 10,000 characters.
+- **Images**: base64-encoded, formats: png, jpeg, webp. Max 5MB each, 5 per request.
 
-### 4. Start Session
+---
 
-Start a tutoring session. Sessions can be standalone or linked to a plan node.
+## Workflows
 
-**Endpoint**: `POST /api/v2/agent/sessions`
-
-**Request (standalone)**:
-```json
-{
-  "topic": "Explain how gradient descent works"
-}
-```
-
-**Request (linked to plan)**:
-```json
-{
-  "topic": "Gradient Descent",
-  "plan_id": "uuid",
-  "plan_node_id": "uuid",
-  "tutoring_language": "en"
-}
-```
-
-**Response** includes: session details, session plan (goal, strategy, steps), opening probe, and a proof.
-
-### 5. Analysis Heartbeat
-
-Submit multimodal inputs for real-time analysis. Supports audio, text, and images.
-
-**Endpoint**: `POST /api/v2/agent/sessions/{id}/analyze`
-
-**Request**:
-```json
-{
-  "inputs": [
-    { "type": "audio", "data": "base64-encoded-audio", "format": "webm" }
-  ],
-  "context": {
-    "active_probe_ids": ["probe-uuid"],
-    "tools_in_use": ["notebook"]
-  }
-}
-```
-
-**Text input** (alternative to audio):
-```json
-{
-  "inputs": [
-    { "type": "text", "content": "I think gradient descent works by..." }
-  ]
-}
-```
-
-**Response** includes: analysis (gap_score, signals, transcript), session_plan_update, guidance (next_probe, probes_to_archive), and proof.
-
-### 6. Pause Session
-
-**Endpoint**: `POST /api/v2/agent/sessions/{id}/pause`
-
-**Request**:
-```json
-{
-  "reason": "Taking a break",
-  "estimated_resume_minutes": 30
-}
-```
-
-### 7. Resume Session
-
-**Endpoint**: `POST /api/v2/agent/sessions/{id}/resume`
-
-Returns current context and a reorientation probe.
-
-### 8. End Session
-
-**Endpoint**: `POST /api/v2/agent/sessions/{id}/end`
-
-**Request**:
-```json
-{
-  "completion_status": "completed",
-  "user_feedback": "Great session, learned a lot"
-}
-```
-
-**Response** includes: session summary, generated report, statistics, plan_updates (if linked), and proof.
-
-### 9. Ask Teaching Assistant
-
-Ask a question during a session. Maintains conversation history.
-
-**Endpoint**: `POST /api/v2/agent/sessions/{id}/ask`
-
-**Request**:
-```json
-{
-  "question": "Can you explain what a learning rate is?",
-  "conversation_id": "uuid"
-}
-```
-
-**Response**:
-```json
-{
-  "response": {
-    "id": "msg-uuid",
-    "content": "A learning rate controls how much...",
-    "suggested_follow_up": "Try varying the learning rate..."
-  },
-  "conversation": { "id": "uuid", "message_count": 4 },
-  "proof": { "id": "uuid", "type": "assistant_query", "fingerprint": "sha256:..." }
-}
-```
-
-### 10. Get Analytics
-
-**Endpoint**: `GET /api/v2/agent/analytics/user`
-
-Returns overview (total plans, sessions, completion rates), performance trends, learning history, and achievements.
-
-## Complete Agent Workflow
+### Complete Learning Journey
 
 ```python
-import base64, requests, os
+import requests, os
 
 API_KEY = os.environ["OPENLESSON_API_KEY"]
 BASE = "https://www.openlesson.academy"
 H = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
 
-# Step 1: Create a learning plan
+# 1. Create a learning plan
 plan = requests.post(f"{BASE}/api/v2/agent/plans",
     json={"topic": "Quantum Computing", "duration_days": 14}, headers=H).json()
 
@@ -253,11 +142,14 @@ plan_id = plan["plan"]["id"]
 nodes = plan["plan"]["nodes"]
 start_node = next(n for n in nodes if n["is_start"])
 
-# Step 2: Adapt the plan if needed
-requests.post(f"{BASE}/api/v2/agent/plans/{plan_id}/adapt",
-    json={"instruction": "Skip intro material, I know the basics"}, headers=H)
+# 2. Check plan analytics
+analytics = requests.get(f"{BASE}/api/v2/agent/analytics/plans/{plan_id}", headers=H).json()
 
-# Step 3: Start a session (can be standalone or linked)
+# 3. Adapt the plan if needed
+requests.post(f"{BASE}/api/v2/agent/plans/{plan_id}/adapt",
+    json={"instruction": "Skip intro, I know the basics"}, headers=H)
+
+# 4. Start a session linked to the first node
 session = requests.post(f"{BASE}/api/v2/agent/sessions",
     json={
         "topic": start_node["title"],
@@ -266,28 +158,116 @@ session = requests.post(f"{BASE}/api/v2/agent/sessions",
     }, headers=H).json()
 
 session_id = session["session"]["id"]
-print(f"Opening probe: {session['opening_probe']}")
+print(f"Opening probe: {session['opening_probe']['text']}")
 
-# Step 4: Submit analysis (text or audio)
+# 5. Submit analysis (text)
 analysis = requests.post(f"{BASE}/api/v2/agent/sessions/{session_id}/analyze",
-    json={"inputs": [{"type": "text", "content": "I think qubits use superposition to..."}]},
-    headers=H).json()
+    json={
+        "inputs": [{"type": "text", "content": "I think qubits use superposition..."}],
+        "context": {"focused_probe_id": session["opening_probe"]["id"]}
+    }, headers=H).json()
 
 print(f"Gap score: {analysis['analysis']['gap_score']}")
 print(f"Next probe: {analysis['guidance']['next_probe']['text']}")
 
-# Step 5: Ask the teaching assistant
+# 6. Ask the teaching assistant
 answer = requests.post(f"{BASE}/api/v2/agent/sessions/{session_id}/ask",
-    json={"question": "What exactly is phase kickback?"}, headers=H).json()
+    json={"question": "What is phase kickback?"}, headers=H).json()
 
 print(f"Assistant: {answer['response']['content']}")
 
-# Step 6: End session
-report = requests.post(f"{BASE}/api/v2/agent/sessions/{session_id}/end",
-    json={"completion_status": "completed"}, headers=H).json()
+# 7. Get conversation history
+conv_id = answer["conversation"]["id"]
+history = requests.get(
+    f"{BASE}/api/v2/agent/sessions/{session_id}/assistant/conversations/{conv_id}",
+    headers=H).json()
 
-print(f"Report: {report['report']}")
+# 8. Check session probes
+probes = requests.get(
+    f"{BASE}/api/v2/agent/sessions/{session_id}/probes?status=active",
+    headers=H).json()
+
+# 9. End session
+report = requests.post(f"{BASE}/api/v2/agent/sessions/{session_id}/end",
+    json={"completion_status": "completed", "user_feedback": "Great session"},
+    headers=H).json()
+
+print(f"Report:\n{report['report']['markdown']}")
+
+# 10. Verify the session proof
+proof_id = report["proof"]["id"]
+verification = requests.get(
+    f"{BASE}/api/v2/agent/proofs/{proof_id}/verify", headers=H).json()
+
+print(f"Valid: {verification['verification']['valid']}")
+
+# 11. Anchor the proof on Solana
+anchor = requests.post(
+    f"{BASE}/api/v2/agent/proofs/{proof_id}/anchor", headers=H).json()
+
+print(f"TX: {anchor['anchoring']['tx_signature']}")
+
+# 12. Get the session Merkle batch
+batch = requests.get(
+    f"{BASE}/api/v2/agent/proofs/session/{session_id}/batch", headers=H).json()
+
+# 13. Check overall user analytics
+user_stats = requests.get(f"{BASE}/api/v2/agent/analytics/user", headers=H).json()
 ```
+
+### Pause and Resume Flow
+
+```python
+# Pause
+requests.post(f"{BASE}/api/v2/agent/sessions/{session_id}/pause",
+    json={"reason": "Taking a break", "estimated_resume_minutes": 30}, headers=H)
+
+# ... time passes ...
+
+# Resume — returns reorientation probe
+resumed = requests.post(f"{BASE}/api/v2/agent/sessions/{session_id}/resume",
+    json={"continuation_context": "Back and ready"}, headers=H).json()
+
+print(f"Reorientation: {resumed['reorientation_probe']['text']}")
+```
+
+### Restart with New Strategy
+
+```python
+restarted = requests.post(f"{BASE}/api/v2/agent/sessions/{session_id}/restart",
+    json={
+        "reason": "Want to try visual approach",
+        "preserve_transcript": True,
+        "new_strategy": "Focus on diagrams"
+    }, headers=H).json()
+
+print(f"New opening: {restarted['opening_probe']['text']}")
+```
+
+### Browse Plans and Sessions
+
+```python
+# List active plans
+plans = requests.get(f"{BASE}/api/v2/agent/plans?status=active&limit=10", headers=H).json()
+
+# Get plan node graph
+nodes = requests.get(f"{BASE}/api/v2/agent/plans/{plan_id}/nodes", headers=H).json()
+
+# List sessions for a plan
+sessions = requests.get(
+    f"{BASE}/api/v2/agent/sessions?plan_id={plan_id}&status=completed",
+    headers=H).json()
+
+# Get session details
+detail = requests.get(f"{BASE}/api/v2/agent/sessions/{session_id}", headers=H).json()
+
+# Get transcript
+transcript = requests.get(
+    f"{BASE}/api/v2/agent/sessions/{session_id}/transcript?format=full",
+    headers=H).json()
+```
+
+---
 
 ## Error Handling
 
@@ -309,13 +289,20 @@ Common codes:
 - **429** `rate_limit_exceeded` — Too many requests (120/min)
 - **500** `internal_error` — Server error
 
+---
+
 ## Tips for Agents
 
-1. **Multimodal inputs**: The analyze endpoint accepts audio (base64, webm/mp4/ogg), text, and images. Use text for typed responses, audio for speech.
-2. **Standalone sessions**: You don't need a plan to start a session. Just provide a topic.
-3. **Track gap scores**: Scores below 0.3 indicate strong understanding. Above 0.6 needs follow-up.
-4. **Use the teaching assistant**: When stuck on a concept, use `/ask` instead of ending the session.
-5. **Pause and resume**: Long learning sessions can be paused and resumed later with full context restoration.
-6. **Every action creates a proof**: Proofs can be verified via `GET /api/v2/agent/proofs/{id}/verify`.
-7. **Schedule all sessions**: When you generate a learning plan, remind your human when sessions are due.
-8. **Adapt plans freely**: Use natural language to restructure plans — the AI preserves completed work.
+1. **Standalone sessions**: You don't need a plan to start a session — just provide a topic.
+2. **Track gap scores**: Below 0.3 = strong understanding. Above 0.6 = needs follow-up.
+3. **Use the teaching assistant**: When stuck, use `openlesson_ask` instead of ending the session.
+4. **Pause and resume**: Long sessions can be paused and resumed later with full context restoration.
+5. **Restart option**: If the approach isn't working, restart with a new strategy rather than ending.
+6. **Every mutation creates a proof**: Verify with `openlesson_verify_proof`, anchor with `openlesson_anchor_proof`.
+7. **Merkle batches**: Session heartbeat proofs are batched into a Merkle tree at session end — verify individual heartbeats against the root.
+8. **Schedule sessions**: When you generate a learning plan, remind the user when sessions are due.
+9. **Adapt plans freely**: Use natural language to restructure plans — completed nodes are preserved.
+10. **Multimodal inputs**: The analyze endpoint accepts audio (base64), text, and up to 5 images per request.
+11. **Read before write**: Use `openlesson_get_plan`, `openlesson_get_session`, `openlesson_get_session_plan` to understand the current state before making changes.
+12. **Analytics for insight**: Use plan/session/user analytics to guide learning recommendations and adapt the approach.
+13. **Proof chains**: Proofs link to previous proofs — use `openlesson_get_proof` to follow the chain.

@@ -1,19 +1,51 @@
 name: openlesson
 version: 2.0.0
-description: openLesson tutoring platform — create learning plans, run multimodal sessions, ask the teaching assistant, verify cryptographic proofs
+description: >-
+  openLesson tutoring platform — full Agentic API v2 coverage: learning plans,
+  multimodal sessions, teaching assistant, analytics, cryptographic proofs,
+  and API key management (33 tools).
 author: openLesson
 homepage: https://www.openlesson.academy
 provides_tools:
+  # API Keys
+  - openlesson_list_keys
+  - openlesson_create_key
+  - openlesson_delete_key
+  - openlesson_update_key_scopes
+  # Learning Plans
+  - openlesson_list_plans
   - openlesson_create_plan
+  - openlesson_get_plan
+  - openlesson_update_plan
+  - openlesson_delete_plan
+  - openlesson_get_plan_nodes
   - openlesson_adapt_plan
   - openlesson_plan_from_video
+  # Sessions
+  - openlesson_list_sessions
   - openlesson_start_session
+  - openlesson_get_session
   - openlesson_analyze
   - openlesson_pause_session
   - openlesson_resume_session
+  - openlesson_restart_session
   - openlesson_end_session
+  - openlesson_get_session_probes
+  - openlesson_get_session_plan
+  - openlesson_get_session_transcript
+  # Teaching Assistant
   - openlesson_ask
-  - openlesson_analytics
+  - openlesson_get_conversation
+  # Analytics
+  - openlesson_plan_analytics
+  - openlesson_session_analytics
+  - openlesson_user_analytics
+  # Proofs
+  - openlesson_list_proofs
+  - openlesson_get_proof
+  - openlesson_verify_proof
+  - openlesson_anchor_proof
+  - openlesson_get_session_batch
 provides_hooks:
   - pre_llm_call
 requires_env:
